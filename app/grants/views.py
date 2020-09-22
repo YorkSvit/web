@@ -2049,7 +2049,13 @@ def get_grant_verification_text(grant, long=True):
 
 @login_required
 def verify_grant(request, grant_id):
-    grant = Grant.objects.get(pk=grant_id)
+    try:
+        grant = Grant.objects.get(pk=grant_id)
+    except Grant.DoesNotExist:
+        return JsonResponse({
+            'ok': False,
+            'msg': 'Invalid Gant.'
+        })
 
     if not is_grant_team_member(grant, request.user.profile):
         return JsonResponse({
@@ -2116,7 +2122,8 @@ def verify_grant(request, grant_id):
 
 @csrf_exempt
 @require_POST
-def contribute_to_grant_v1(request):
+@login_required
+def contribute_to_grant_v1(request, grant_id):
 
     response = {
         'status': 400,
@@ -2140,7 +2147,6 @@ def contribute_to_grant_v1(request):
         response['message'] = 'error: contribution to a grant is a POST operation'
         return JsonResponse(response)
 
-    grant_id = request.POST.get('grant_id', None)
     if not grant_id:
         response['message'] = 'error: grant_id is manadatory param'
         return JsonResponse(response)
@@ -2179,10 +2185,14 @@ def contribute_to_grant_v1(request):
         response['message'] = 'error: tenant is manadatory param'
         return JsonResponse(response)
 
+    if not tenant in ['ETH', 'ZCASH']:
+        response['message'] = 'error: tenant chain is not supported.'
+        return JsonResponse(response)
+
 
     tx_id = request.POST.get('tx_id', None)
     comment = request.POST.get('comment', None)
-    network = request.POST.get('network', 'mainnet')
+    network = grant.network
     hide_wallet_address = request.POST.get('hide_wallet_address', None)
 
     try:
